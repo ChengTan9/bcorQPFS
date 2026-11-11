@@ -1,3 +1,4 @@
+if (.Platform$OS.type == "windows") invisible(Sys.setlocale("LC_CTYPE", ".UTF-8"))
 # Run HSIC Lasso on the dHSIC-screened ADNI predictors.
 
 rm(list = ls())
@@ -17,8 +18,10 @@ script_dir <- if (!is.null(script_path) && nzchar(script_path)) {
 }
 source(file.path(script_dir, "hsic_lasso_functions.R"))
 project_root <- file.path(script_dir, "..", "..")
-data_dir   <- file.path(project_root, "code", "data")
-out_dir    <- file.path(script_dir, "HSICLasso_results")
+source(file.path(script_dir, "workflow_utils.R"), encoding = "UTF-8")
+V2_ROOT <- v2_root(script_dir)
+data_dir <- v2_processed_data(V2_ROOT)
+out_dir <- file.path(V2_ROOT, "results", "hsic_lasso_selection", format(Sys.time(), "%Y%m%d_%H%M%S"))
 
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -27,11 +30,11 @@ cat("data_dir   =", data_dir, "\n")
 cat("out_dir    =", out_dir, "\n")
 
 # Locate screening results, outcomes, and the reference genotype matrix.
-path_right_x <- find_file_case_insensitive(data_dir, "ADNI_dHSIC_selected_vs_right_res_ori.RData")
-path_right_y <- find_file_case_insensitive(data_dir, "right_res_ori.Rdata")
-path_left_x  <- find_file_case_insensitive(data_dir, "ADNI_dHSIC_selected_vs_left_res_ori.RData")
-path_left_y  <- find_file_case_insensitive(data_dir, "left_res_ori.Rdata")
-path_adni    <- find_file_case_insensitive(data_dir, "ADNI_1_3_COMBINE1215.Rdata")
+path_right_x <- v2_data_file(V2_ROOT, "ADNI_dHSIC_selected_vs_right_res_ori.RData")
+path_right_y <- v2_data_file(V2_ROOT, "right_res_ori.Rdata")
+path_left_x  <- v2_data_file(V2_ROOT, "ADNI_dHSIC_selected_vs_left_res_ori.RData")
+path_left_y  <- v2_data_file(V2_ROOT, "left_res_ori.Rdata")
+path_adni    <- v2_data_file(V2_ROOT, "ADNI_1_3_COMBINE1215.Rdata")
 
 cat("\n找到文件：\n")
 cat("right_x:", path_right_x, "\n")

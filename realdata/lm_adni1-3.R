@@ -1,9 +1,14 @@
+if (.Platform$OS.type == "windows") invisible(Sys.setlocale("LC_CTYPE", ".UTF-8"))
 # Preprocess and combine ADNI1, ADNI2, and ADNI3 data.
 
 rm(list = ls())
 
 find_script_directory <- function() {
-  local_candidates <- c(".", file.path("code_V1", "realdata"))
+  file_argument <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
+  if (length(file_argument)) {
+    return(dirname(normalizePath(sub("^--file=", "", file_argument[[1L]]), winslash = "/")))
+  }
+  local_candidates <- c(".", file.path("code_V2", "realdata"))
   local_candidates <- local_candidates[file.exists(
     file.path(local_candidates, "lm_adni1-3.R")
   )]
@@ -25,7 +30,9 @@ find_script_directory <- function() {
 
 # Define input and output directories.
 SCRIPT_DIR <- find_script_directory()
-RAW_DATA_DIR <- file.path(SCRIPT_DIR, "data", "raw")
+source(file.path(SCRIPT_DIR, "workflow_utils.R"), encoding = "UTF-8")
+V2_ROOT <- v2_root(SCRIPT_DIR)
+RAW_DATA_DIR <- Sys.getenv("BCORQPFS_RAW_DATA_DIR", unset = file.path(V2_ROOT, "data", "raw"))
 ADNI1_SAMPLE_DIR <- file.path(RAW_DATA_DIR, "Hippocampus_all", "sample information")
 ADNI1_HIPP_DIR <- file.path(RAW_DATA_DIR, "Hippocampus_all", "hipp_combine_information")
 ADNI23_DIR <- file.path(RAW_DATA_DIR, "ADNI2-3")
@@ -33,7 +40,7 @@ ADNI23_HIPP_DIR <- file.path(ADNI23_DIR, "hipp_information_radial")
 ADNI2_SNP_DIR <- file.path(ADNI23_DIR, "ADNI2_SNP")
 ADNI3_SNP_DIR <- file.path(ADNI23_DIR, "ADNI3_SNP")
 ADNI13_AUX_DIR <- file.path(RAW_DATA_DIR, "ADNI1-3")
-PROCESSED_DATA_DIR <- file.path(SCRIPT_DIR, "..", "..", "code", "data")
+PROCESSED_DATA_DIR <- v2_processed_data(V2_ROOT)
 ID_OUTPUT_DIR <- file.path(PROCESSED_DATA_DIR, "hipp_id")
 dir.create(PROCESSED_DATA_DIR, recursive = TRUE, showWarnings = FALSE)
 dir.create(ID_OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)

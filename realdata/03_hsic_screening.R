@@ -1,3 +1,4 @@
+if (.Platform$OS.type == "windows") invisible(Sys.setlocale("LC_CTYPE", ".UTF-8"))
 # Screen ADNI predictors with dHSIC for both hippocampal outcomes.
 
 rm(list = ls())
@@ -414,7 +415,10 @@ screen_dhsic_direct_chunk <- function(adni_rdata_path,
 script_dir <- get_script_dir()
 
 project_root <- file.path(script_dir, "..", "..")
-data_dir <- file.path(project_root, "code", "data")
+source(file.path(script_dir, "workflow_utils.R"), encoding = "UTF-8")
+V2_ROOT <- v2_root(script_dir)
+data_dir <- v2_processed_data(V2_ROOT)
+dir.create(data_dir, recursive = TRUE, showWarnings = FALSE)
 
 if (!dir.exists(data_dir)) {
   stop("未找到 data 文件夹：", data_dir)
@@ -423,10 +427,10 @@ if (!dir.exists(data_dir)) {
 cat("script_dir = ", script_dir, "\n", sep = "")
 cat("data_dir   = ", data_dir, "\n", sep = "")
 
-path_adni  <- find_file_case_insensitive(data_dir, "ADNI_1_3_COMBINE1215.Rdata")
+path_adni  <- v2_data_file(V2_ROOT, "ADNI_1_3_COMBINE1215.Rdata")
 
-path_right <- find_file_case_insensitive(data_dir, "right_res_ori.Rdata")
-path_left  <- find_file_case_insensitive(data_dir, "left_res_ori.Rdata")
+path_right <- v2_data_file(V2_ROOT, "right_res_ori.Rdata")
+path_left  <- v2_data_file(V2_ROOT, "left_res_ori.Rdata")
 
 cat("\n找到输入文件：\n")
 cat("ADNI  : ", path_adni,  "\n", sep = "")

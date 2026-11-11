@@ -1,3 +1,4 @@
+if (.Platform$OS.type == "windows") invisible(Sys.setlocale("LC_CTYPE", ".UTF-8"))
 # Run BCor screening for the left and right hippocampal outcomes.
 
 rm(list = ls())
@@ -13,7 +14,10 @@ SCRIPT_DIR <- if (!is.null(SCRIPT_PATH) && nzchar(SCRIPT_PATH)) {
   getwd()
 }
 PROJECT_ROOT <- file.path(SCRIPT_DIR, "..", "..")
-DATA_DIR <- file.path(PROJECT_ROOT, "code", "data")
+source(file.path(SCRIPT_DIR, "workflow_utils.R"), encoding = "UTF-8")
+V2_ROOT <- v2_root(SCRIPT_DIR)
+DATA_DIR <- v2_processed_data(V2_ROOT)
+dir.create(DATA_DIR, recursive = TRUE, showWarnings = FALSE)
 
 # Load the screening functions and verify package dependencies.
 source(file.path(SCRIPT_DIR, "bcor_screen_select_functions.R"))
@@ -34,9 +38,9 @@ SEED_RIGHT <- 20260318
 SEED_LEFT  <- 20260319
 
 # Define the genotype matrix and hippocampal outcome files.
-X_FILE <- file.path(DATA_DIR, "ADNI_1_3_COMBINE1215.Rdata")
-Y_RIGHT_FILE <- file.path(DATA_DIR, "right_res_ori.Rdata")
-Y_LEFT_FILE  <- file.path(DATA_DIR, "left_res_ori.Rdata")
+X_FILE <- v2_data_file(V2_ROOT, "ADNI_1_3_COMBINE1215.Rdata")
+Y_RIGHT_FILE <- v2_data_file(V2_ROOT, "right_res_ori.Rdata")
+Y_LEFT_FILE  <- v2_data_file(V2_ROOT, "left_res_ori.Rdata")
 
 # Load the genotype matrix and move subject IDs to row names.
 message("开始读取 X 文件：ADNI_1_3_COMBINE1215.Rdata")
@@ -202,3 +206,14 @@ message("另外还保存了完整结果对象：")
 message("7. ADNI_right_screening_full_result.RData")
 message("8. ADNI_left_screening_full_result.RData")
 message("============================================================")
+
+# Metadata consumed by 02/05: preserve global SNP indices and screening cutoff.
+for (side in c("left", "right")) {
+  result <- if (side == "left") left_screen_res else right_screen_res
+  variables <- colnames(result$X_screened)
+  original_index <- match(variables, colnames(X_base))
+  stopifnot(!anyNA(original_index))
+  saveRDS(list(variables = variables, original_index = original_index,
+               threshold = result$tau_n, n = nrow(result$X_screened)),
+          file.path(DATA_DIR, paste0("ADNI_", side, "_screening_metadata.rds")))
+}

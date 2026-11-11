@@ -1,3 +1,4 @@
+if (.Platform$OS.type == "windows") invisible(Sys.setlocale("LC_CTYPE", ".UTF-8"))
 #!/usr/bin/env Rscript
 
 # Run bcorQPFS on saved BCor-screened ADNI predictors.
@@ -16,8 +17,10 @@ SCRIPT_DIR <- if (!is.null(SCRIPT_PATH) && nzchar(SCRIPT_PATH)) {
   getwd()
 }
 PROJECT_ROOT <- file.path(SCRIPT_DIR, "..", "..")
-DATA_DIR <- file.path(PROJECT_ROOT, "code", "data")
-RESULT_DIR <- file.path(DATA_DIR, "result", "BcorQPFS_0729")
+source(file.path(SCRIPT_DIR, "workflow_utils.R"), encoding = "UTF-8")
+V2_ROOT <- v2_root(SCRIPT_DIR)
+DATA_DIR <- v2_processed_data(V2_ROOT)
+RESULT_DIR <- file.path(V2_ROOT, "results", "adni_single_run", format(Sys.time(), "%Y%m%d_%H%M%S"))
 CACHE_DIR <- file.path(RESULT_DIR, "cache")
 
 # Set the selection, Nystrom, numerical, and parallel parameters.
@@ -31,6 +34,7 @@ SIDES <- c("left", "right")
 
 dir.create(RESULT_DIR, recursive = TRUE, showWarnings = FALSE)
 dir.create(CACHE_DIR, recursive = TRUE, showWarnings = FALSE)
+writeLines("status=running", file.path(RESULT_DIR, "run_status.txt"))
 
 log_message <- function(...) {
   message(sprintf("[%s] %s", format(Sys.time(), "%Y-%m-%d %H:%M:%S"),
@@ -55,10 +59,8 @@ as_numeric_matrix <- function(x) {
 }
 
 find_screened_file <- function(side) {
-  candidates <- c(
-    file.path(DATA_DIR, sprintf("ADNI_%s_screening_selected.RData", side)),
-    file.path(DATA_DIR, sprintf("ADNI_COMBINE_%s_selected.RData", side))
-  )
+  names <- c(sprintf("ADNI_%s_screening_selected.RData", side), sprintf("ADNI_COMBINE_%s_selected.RData", side))
+  candidates <- unlist(lapply(names, function(name) tryCatch(v2_data_file(V2_ROOT, name), error = function(e) character(0))))
   hit <- candidates[file.exists(candidates)]
   if (!length(hit)) {
     stop("No saved screening result found for ", side, ". Expected one of: ",
@@ -106,8 +108,9 @@ parallel_map <- function(X, FUN, cl) {
   if (is.null(cl)) lapply(X, FUN) else parallel::parLapplyLB(cl, X, FUN)
 }
 
-compute_relevance <- function(X, Y, cl = NULL) {
+compute_relevance <- function(X, Y, cl = NULL, distance_cache = NULL) {
   DY <- stats::dist(Y)
+  if (!is.null(distance_cache)) saveRDS(DY, distance_cache)
   if (!is.null(cl)) {
     parallel::clusterExport(cl, c("X", "DY"), envir = environment())
   }
@@ -216,7 +219,7 @@ solve_factorized_simplex_qp <- function(L, d, F, alpha, solver = NULL) {
 # Fit one hippocampal side and save its ranking and diagnostics.
 fit_side <- function(side) {
   screened_path <- find_screened_file(side)
-  y_path <- file.path(DATA_DIR, sprintf("%s_res_ori.Rdata", side))
+  y_path <- v2_data_file(V2_ROOT, sprintf("%s_res_ori.Rdata", side))
   preferred_x <- sprintf("ADNI_COMBINE_%s_selected", side)
 
   log_message(side, ": loading saved screening result ", basename(screened_path))
@@ -254,7 +257,7 @@ fit_side <- function(side) {
     cl <- make_cluster(N_CORES)
     on.exit(if (!is.null(cl)) parallel::stopCluster(cl), add = TRUE)
     log_message(side, ": computing relevance F on screened predictors")
-    F <- compute_relevance(X, Y, cl)
+    F <- compute_relevance(X, Y, cl, distance_cache = file.path(CACHE_DIR, paste0(side, "_DY_dist.rds")))
     log_message(side, ": computing landmark blocks A and B")
     blocks <- compute_landmark_blocks(X, landmark_idx, cl)
     saveRDS(list(F = F, blocks = blocks, variables = colnames(X),
@@ -290,6 +293,7 @@ fit_side <- function(side) {
   saveRDS(list(
     side = side,
     screened_input = screened_path,
+    phenotype_input = y_path,
     selected_variables = names(score_original)[top],
     ranking = ranking,
     alpha = alpha_info,
@@ -312,6 +316,7 @@ fit_side <- function(side) {
 
 main <- function() {
   for (side in SIDES) fit_side(side)
+  writeLines("status=completed", file.path(RESULT_DIR, "run_status.txt"))
   log_message("All requested ADNI BcorQPFS analyses completed.")
 }
 
