@@ -1,13 +1,16 @@
+if (.Platform$OS.type == "windows") invisible(Sys.setlocale("LC_CTYPE", ".UTF-8"))
 # Run the Nystrom simulation reported in Tables 1--3.
 
+file_arg <- grep("^--file=", commandArgs(FALSE), value = TRUE)
 candidate_dirs <- c(
+  if (length(file_arg)) dirname(sub("^--file=", "", file_arg[[1L]])) else character(0),
   if (requireNamespace("rstudioapi", quietly = TRUE) && rstudioapi::isAvailable()) {
     dirname(rstudioapi::getSourceEditorContext()$path)
   } else {
     character(0)
   },
   getwd(),
-  file.path(getwd(), "code_V1", "simulation")
+  file.path(getwd(), "code_V2", "simulation")
 )
 candidate_dirs <- unique(candidate_dirs[nzchar(candidate_dirs)])
 script_dir <- candidate_dirs[file.exists(file.path(candidate_dirs, "simulation_functions.R"))][1L]
